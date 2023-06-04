@@ -1,15 +1,15 @@
 import datetime
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
 
 
+# 유저 기본 스키마
 class User(BaseModel):
     id: int
     account: str
-    password: str
-    birth: datetime.datetime
+    password: str | None = None
+    birth: datetime.date | None = None
     name: str
-    nickname: str
-    gps_agree: bool
+    nickname: str | None = None
     login_type: str
     created_at: datetime.datetime
     profile_image: str | None = None
@@ -18,13 +18,13 @@ class User(BaseModel):
         orm_mode = True
 
 
+# 회원가입 스키마
 class UserCreate(BaseModel):
     account: str
     password: str
-    birth: datetime.datetime
+    birth: datetime.date
     name: str
     nickname: str
-    gps_agree: bool
     login_type: str
     created_at: datetime.datetime
     profile_image: str | None = None
@@ -37,6 +37,32 @@ class UserCreate(BaseModel):
     #     return v
 
 
+# 회원가입 with 네이버 스키마
+class UserCreateWithNaver(BaseModel):
+    account: str
+    birth: datetime.date
+    name: str
+    nickname: str
+    login_type: str
+    created_at: datetime.datetime
+    profile_image: str | None = None
+
+
+# 회원가입 with 카카오 스키마
+class UserCreateWithKakao(BaseModel):
+    account: str
+    name: str
+    login_type: str
+    created_at: datetime.datetime
+    profile_image: str | None = None
+
+
+# SSO 로그인 스키마
+class LoginWithSSO(BaseModel):
+    account: str
+
+
+# access_token 스키마
 class Token(BaseModel):
     access_token: str
     token_type: str

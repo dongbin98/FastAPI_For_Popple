@@ -1,7 +1,6 @@
 from datetime import timedelta, datetime
 
-from fastapi import APIRouter, Depends, status
-from fastapi import HTTPException
+from fastapi import APIRouter, Depends, status, Query, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
@@ -21,8 +20,9 @@ router = APIRouter(
 )
 
 
-def get_current_user(token: str = Depends(oauth2_scheme),
-                     db: Session = Depends(get_db)):
+# 가입여부 체크
+async def get_current_user(token: str = Depends(oauth2_scheme),
+                           db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -42,15 +42,46 @@ def get_current_user(token: str = Depends(oauth2_scheme),
         return user
 
 
-@router.post("/login", response_model=user_schemas.Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+# 일반 로그인
+@router.post("/login/normal", response_model=user_schemas.Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # 아이디 및 패스워드 체크
     user = user_crud.get_user_by_account(db, form_data.username)
-    if not user or not pwd_context.verify(form_data.password, user.password):
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not Exist account",
+        )
+    elif not pwd_context.verify(form_data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect account or password",
+            detail="Incorrect password",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # access_token 생성
+    data = {
+        "sub": user.account,
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    }
+    access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "username": user.account
+    }
+
+
+# SSO 로그인
+@router.post("/login/sso", response_model=user_schemas.Token)
+async def login_for_access_token(login_with_sso: user_schemas.LoginWithSSO, db: Session = Depends(get_db)):
+    # 아이디 및 패스워드 체크
+    user = user_crud.get_user_by_account(db, login_with_sso.account)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not Exist account",
         )
 
     # access_token 생성
@@ -69,21 +100,54 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 
 # 유저 목록 조회
 @router.get("/list", response_model=list[user_schemas.User])
-def read_users(db: Session = Depends(get_db)):  # 의존성 주입
+async def read_users(db: Session = Depends(get_db)):  # 의존성 주입
     _user_list = user_crud.get_users(db=db)
     return _user_list
 
 
 # 단일 유저 조회
-@router.get("/{user_id}", response_model=user_schemas.User)
-def read_user(user_id: int, db: Session = Depends(get_db)):
-    user = user_crud.get_user(db=db, user_id=user_id)
-    return user
+@router.get("/id", response_model=user_schemas.User)
+async def read_user(id: int = Query(default=0), db: Session = Depends(get_db)):
+    user = user_crud.get_user(db, id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not assigned user",
+        )
+    else:
+        return user
+
+
+# TODO("Query 매개변수 더 알아보기")
+# 이미 가입된 계정 조회
+@router.get("/account", response_model=user_schemas.User)
+async def check_user_account(account: str = Query(default=None), db: Session = Depends(get_db)):
+    user = user_crud.get_user_by_account(db, account)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not registered account",
+        )
+    else:
+        return user
+
+
+# 이미 등록된 닉네임 조회
+@router.get("/nickname", response_model=user_schemas.User)
+async def check_user_nickname(nickname: str = Query(default=None), db: Session = Depends(get_db)):
+    user = user_crud.get_user_by_nickname(db, nickname)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not assigned Nickname",
+        )
+    else:
+        return user
 
 
 # 유저 등록
-@router.post("/add", status_code=status.HTTP_200_OK)
-def create_user(user_create: user_schemas.UserCreate, db: Session = Depends(get_db)):
+@router.post("/add/normal", status_code=status.HTTP_200_OK)
+async def create_user(user_create: user_schemas.UserCreate, db: Session = Depends(get_db)):
     # 이메일로 중복 가입 방지
     db_user = user_crud.get_user_by_account(db, user_create.account)
     if db_user:
@@ -91,10 +155,30 @@ def create_user(user_create: user_schemas.UserCreate, db: Session = Depends(get_
     return user_crud.create_user(db, user_create)
 
 
+# 유저 등록 with Naver
+@router.post("/add/naver", status_code=status.HTTP_200_OK)
+async def create_user_with_naver(user_create: user_schemas.UserCreateWithNaver, db: Session = Depends(get_db)):
+    # 이메일로 중복 가입 방지
+    db_user = user_crud.get_user_by_account(db, user_create.account)
+    if db_user:
+        raise HTTPException(status_code=400, detail="이미 존재하는 계정입니다.")
+    return user_crud.create_user_with_naver(db, user_create)
+
+
+# 유저 등록 with Kakao
+@router.post("/add/kakao", status_code=status.HTTP_200_OK)
+async def create_user_with_kakao(user_create: user_schemas.UserCreateWithKakao, db: Session = Depends(get_db)):
+    # 이메일로 중복 가입 방지
+    db_user = user_crud.get_user_by_account(db, user_create.account)
+    if db_user:
+        raise HTTPException(status_code=400, detail="이미 존재하는 계정입니다.")
+    return user_crud.create_user_with_kakao(db, user_create)
+
+
 # 유저 삭제
 @router.delete("/delete/{user_id}", status_code=status.HTTP_200_OK)
-def delete_user(_user_delete: user_schemas.UserDelete, db: Session = Depends(get_db),
-                current_user: User = Depends(get_current_user)):
+async def delete_user(_user_delete: user_schemas.UserDelete, db: Session = Depends(get_db),
+                      current_user: User = Depends(get_current_user)):
     _user = user_crud.get_user(db, user_id=_user_delete.user_id)
     if not _user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="데이터를 찾을 수 없습니다")
@@ -105,8 +189,8 @@ def delete_user(_user_delete: user_schemas.UserDelete, db: Session = Depends(get
 
 # 유저 갱신
 @router.put("/update", status_code=status.HTTP_200_OK)
-def update_user(_user_update: user_schemas.UserUpdate, db: Session = Depends(get_db),
-                current_user: User = Depends(get_current_user)):
+async def update_user(_user_update: user_schemas.UserUpdate, db: Session = Depends(get_db),
+                      current_user: User = Depends(get_current_user)):
     _user = user_crud.get_user(db, user_id=_user_update.user_id)
     if not _user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="데이터를 찾을 수 없습니다")
