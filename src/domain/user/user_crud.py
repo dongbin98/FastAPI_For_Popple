@@ -34,7 +34,7 @@ def get_user_by_nickname(db: Session, nickname: str):
 def create_user(db: Session, user_create: UserCreate):
     user = User(account=user_create.account, password=pwd_context.hash(user_create.password), birth=user_create.birth,
                 name=user_create.name, nickname=user_create.nickname, login_type=user_create.login_type,
-                created_at=user_create.created_at, profile_image=user_create.profile_image)
+                profile_image=user_create.profile_image)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -43,9 +43,9 @@ def create_user(db: Session, user_create: UserCreate):
 
 # 유저 등록 with Naver
 def create_user_with_naver(db: Session, user_create: UserCreateWithNaver):
-    user = User(account=user_create.account,  birth=user_create.birth,
+    user = User(account=user_create.account, password=pwd_context.hash(user_create.account), birth=user_create.birth,
                 name=user_create.name, nickname=user_create.nickname, login_type=user_create.login_type,
-                created_at=user_create.created_at, profile_image=user_create.profile_image)
+                profile_image=user_create.profile_image)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -54,8 +54,8 @@ def create_user_with_naver(db: Session, user_create: UserCreateWithNaver):
 
 # 유저 등록 with Kakao
 def create_user_with_kakao(db: Session, user_create: UserCreateWithKakao):
-    user = User(account=user_create.account,  name=user_create.name, login_type=user_create.login_type,
-                created_at=user_create.created_at, profile_image=user_create.profile_image)
+    user = User(account=user_create.account, password=pwd_context.hash(user_create.account), name=user_create.name,
+                login_type=user_create.login_type, profile_image=user_create.profile_image)
     db.add(user)
     db.commit()
     db.refresh(user)

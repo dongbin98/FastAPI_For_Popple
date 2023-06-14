@@ -11,7 +11,6 @@ class User(BaseModel):
     name: str
     nickname: str | None = None
     login_type: str
-    created_at: datetime.datetime
     profile_image: str | None = None
 
     class Config:
@@ -26,7 +25,6 @@ class UserCreate(BaseModel):
     name: str
     nickname: str
     login_type: str
-    created_at: datetime.datetime
     profile_image: str | None = None
 
     # 추후 검색해보자
@@ -40,26 +38,26 @@ class UserCreate(BaseModel):
 # 회원가입 with 네이버 스키마
 class UserCreateWithNaver(BaseModel):
     account: str
+    password: str
     birth: datetime.date
     name: str
     nickname: str
     login_type: str
-    created_at: datetime.datetime
     profile_image: str | None = None
 
 
 # 회원가입 with 카카오 스키마
 class UserCreateWithKakao(BaseModel):
     account: str
+    password: str
     name: str
     login_type: str
-    created_at: datetime.datetime
     profile_image: str | None = None
 
 
-# SSO 로그인 스키마
-class LoginWithSSO(BaseModel):
-    account: str
+# # SSO 로그인 스키마
+# class LoginWithSSO(BaseModel):
+#     account: str
 
 
 # access_token 스키마

@@ -42,8 +42,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme),
         return user
 
 
-# 일반 로그인
-@router.post("/login/normal", response_model=user_schemas.Token)
+# 로그인
+@router.post("/login", response_model=user_schemas.Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # 아이디 및 패스워드 체크
     user = user_crud.get_user_by_account(db, form_data.username)
@@ -69,33 +69,33 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "username": user.account
+        "username": user.account,
     }
 
 
 # SSO 로그인
-@router.post("/login/sso", response_model=user_schemas.Token)
-async def login_for_access_token(login_with_sso: user_schemas.LoginWithSSO, db: Session = Depends(get_db)):
-    # 아이디 및 패스워드 체크
-    user = user_crud.get_user_by_account(db, login_with_sso.account)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Not Exist account",
-        )
-
-    # access_token 생성
-    data = {
-        "sub": user.account,
-        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    }
-    access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "username": user.account
-    }
+# @router.post("/login/sso", response_model=user_schemas.Token)
+# async def login_for_access_token(login_with_sso: user_schemas.LoginWithSSO, db: Session = Depends(get_db)):
+#     # 아이디 및 패스워드 체크
+#     user = user_crud.get_user_by_account(db, login_with_sso.account)
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Not Exist account",
+#         )
+#
+#     # access_token 생성
+#     data = {
+#         "sub": user.account,
+#         "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+#     }
+#     access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+#
+#     return {
+#         "access_token": access_token,
+#         "token_type": "bearer",
+#         "username": user.account,
+#     }
 
 
 # 유저 목록 조회
