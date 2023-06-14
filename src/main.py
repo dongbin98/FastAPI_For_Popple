@@ -1,12 +1,14 @@
 import uvicorn
 from fastapi import FastAPI
 
+from src.domain.seller import seller_router
 from src.domain.user import user_router
 
 # FastAPI 객체 생성
 app = FastAPI()
 
 app.include_router(user_router.router)
+app.include_router(seller_router.router)
 
 
 # Route Base Path
